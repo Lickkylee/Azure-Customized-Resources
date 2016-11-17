@@ -1,0 +1,7 @@
+{
+  "itemDisplayName": "Azure 4 nodes HA arch: load balancer web + internal load balancer backend",
+  "description": "This templates will build 4 VMs for a customized web+db HA arch. 2 nodes in frontend subnet for load balance web and 2 ndoes in backend subnet for database ha based on internal load balancer. ",
+  "summary": "This template will build 4 VMs. ",
+  "githubUsername": "LickkyLee",
+  "dateUpdated": "2016-11-18"
+}
