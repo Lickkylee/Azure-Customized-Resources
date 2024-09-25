@@ -37,7 +37,7 @@ $fileName = "BlobInfo_$timestamp.txt"
 $filePath = Join-Path -Path $tempPath -ChildPath $fileName
 New-Item -Path $filePath -ItemType File -Force
 Write-Host "Create Temp file to store data: $filePath"
-"Container,TotalCount,Totalcapacity,BaseCount,BaseCapacity,SnapshotsCount,SnapshotsCapacity,VersionsCount,VersionsCapacity,DeletedCount,DeletedCapacity,HotCount,HotCapacity,CoolCount,CoolCapacity,ColdCount,ColdCapacity,ColdCapacity,ArchiveCapacity,BlockCount,BlockCapacity,PageCount,PageCapacity,AppendCount,AppendCapacity" | out-file $filePath 
+"Container,TotalCount,Totalcapacity,BaseCount,BaseCapacity,SnapshotsCount,SnapshotsCapacity,VersionsCount,VersionsCapacity,DeletedCount,DeletedCapacity,HotCount,HotCapacity,CoolCount,CoolCapacity,ColdCount,ColdCapacity,ArchiveCount,ArchiveCapacity,BlockCount,BlockCapacity,PageCount,PageCapacity,AppendCount,AppendCapacity" | out-file $filePath 
 
 # sign in
 Write-Host "Logging in...";
