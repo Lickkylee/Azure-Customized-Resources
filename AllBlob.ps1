@@ -37,7 +37,7 @@ $fileName = "BlobInfo_$timestamp.txt"
 $filePath = Join-Path -Path $tempPath -ChildPath $fileName
 New-Item -Path $filePath -ItemType File -Force
 Write-Host "Create Temp file to store data: $filePath"
-"Container,TotalCount,Totalcapacity,BaseCount,BaseCapacity,SnapshotsLiveCount,SnapshotsLiveCapacity,SnapshotsDeletedCount,SnapshotsDeletedCapacity,VersionsLiveCount,VersionsLiveCapacity,VersionsDeletedCount,VersionsDeletedCapacity,HotCount,HotCapacity,CoolCount,CoolCapacity,ColdCount,ColdCapacity,ColdCapacity,ArchiveCapacity" | out-file $filePath 
+"Container,TotalCount,Totalcapacity,BaseCount,BaseCapacity,SnapshotsCount,SnapshotsCapacity,VersionsCount,VersionsCapacity,DeletedCount,DeletedCapacity,HotCount,HotCapacity,CoolCount,CoolCapacity,ColdCount,ColdCapacity,ColdCapacity,ArchiveCapacity,BlockCount,BlockCapacity,PageCount,PageCapacity,AppendCount,AppendCapacity" | out-file $filePath 
 
 # sign in
 Write-Host "Logging in...";
@@ -105,20 +105,17 @@ function ShowDetails ($storageAccountName, $strContainerName)
 #----------------------------------------------------------------------
 function ContainerList ($containerName, $ctx)
 {
-
     ## blob type
     $Count = 0
     $Capacity = 0 
     $BaseCount = 0
     $BaseCapacity = 0
-    $SnapshotsLiveCount = 0
-    $SnapshotsLiveCapacity = 0
-    $SnapshotsDeletedCount = 0
-    $SnapshotsDeletedCapacity = 0
-    $VersionsLiveCount = 0
-    $VersionsLiveCapacity = 0
-    $VersionsDeletedCount = 0
-    $VersionsDeletedCapacity = 0
+    $SnapshotsCount = 0
+    $SnapshotsCapacity = 0
+    $VersionsCount = 0
+    $VersionsCapacity = 0
+    $DeletedCount = 0
+    $DeletedCapacity = 0
 
     ## blob tier
     $HotCount = 0
@@ -130,6 +127,15 @@ function ContainerList ($containerName, $ctx)
     $ArchiveCount = 0
     $ArchiveCapacity = 0 
 
+
+     ## blob Type
+    $BlockCount = 0
+    $BlockCapacity = 0
+    $PageCount = 0
+    $PageCapacity = 0
+    $AppendCount = 0 
+    $AppendCapacity = 0
+   
     $blob_Token = $Null
     $exception = $Null 
 
@@ -145,11 +151,10 @@ function ContainerList ($containerName, $ctx)
             break
         }
 
-        $Base = $listOfAllBlobs | Where-Object { $_.IsLatestVersion -eq $true -or ($_.SnapshotTime -eq $null -and $_.VersionId -eq $null) } 
-        $SnapshotsLive = $listOfAllBlobs | Where-Object { $_.SnapshotTime -ne $null -and $_.IsDeleted -ne $true} 
-        $SnapshotsDeleted = $listOfAllBlobs | Where-Object { $_.SnapshotTime -ne $null -and $_.IsDeleted -eq $true} 
-        $VersionsLive = $listOfAllBlobs | Where-Object { $_.IsLatestVersion -ne $true -and $_.SnapshotTime -eq $null -and $_.VersionId -ne $null  -and $_.IsDeleted -ne $true}
-        $VersionsDeleted = $listOfAllBlobs | Where-Object { $_.IsLatestVersion -ne $true -and $_.SnapshotTime -eq $null -and $_.VersionId -ne $null -and $_.IsDeleted -eq $true}
+        $Base = $listOfAllBlobs | Where-Object { ($_.IsLatestVersion -eq $true -or ($_.SnapshotTime -eq $null -and $_.VersionId -eq $null)) -and $_.IsDeleted -ne $true } 
+        $Snapshots = $listOfAllBlobs | Where-Object { $_.SnapshotTime -ne $null -and $_.IsDeleted -ne $true} 
+        $Versions = $listOfAllBlobs | Where-Object { $_.IsLatestVersion -ne $true -and $_.SnapshotTime -eq $null -and $_.VersionId -ne $null  -and $_.IsDeleted -ne $true}
+        $Deleted = $listOfAllBlobs | Where-Object { $_.IsDeleted -eq $true}
      
         foreach($blob in $Base)
         {
@@ -182,15 +187,31 @@ function ContainerList ($containerName, $ctx)
                 $ArchiveCapacity = $ArchiveCapacity + $blob.Length
             }
 
+            if ($blob.BlobType -eq 'BlockBlob')
+            {
+                $BlockCount++
+                $BlockCapacity = $BlockCapacity + $blob.Length
+            }
+            elseif ($blob.BlobType -eq 'PageBlob')
+            {
+                $PageCount++
+                $PageCapacity = $PageCapacity + $blob.Length
+            }
+            elseif ($blob.BlobType -eq 'AppendBlob')
+            {
+                $AppendCount++
+                $AppendCapacity = $ApppendCapacity + $blob.Length
+            }
+
         }
 
-        foreach($blob in $SnapshotsLive)
+        foreach($blob in $Snapshots)
         {
             # DEBUG - Uncomment next line to have a full list of selected objects
             # write-host $blob.Name " Content-length:" $blob.Length " Access Tier:" $blob.accesstier " LastModified:" $blob.LastModified  " SnapshotTime:" $blob.SnapshotTime " URI:" $blob.ICloudBlob.Uri.AbsolutePath  " IslatestVersion:" $blob.IsLatestVersion  " Lease State:" $blob.ICloudBlob.Properties.LeaseState  " Version ID:" $blob.VersionID
 
-            $SnapshotsLiveCount++
-            $SnapshotsLiveCapacity = $SnapshotsLiveCapacity + $blob.Length
+            $SnapshotsCount++
+            $SnapshotsCapacity = $SnapshotsCapacity + $blob.Length
             if ($blob.accessTier -eq 'Hot')
             {
                 $HotCount++
@@ -215,15 +236,30 @@ function ContainerList ($containerName, $ctx)
                 $ArchiveCapacity = $ArchiveCapacity + $blob.Length
             }
 
+            if ($blob.BlobType -eq 'BlockBlob')
+            {
+                $BlockCount++
+                $BlockCapacity = $BlockCapacity + $blob.Length
+            }
+            elseif ($blob.BlobType -eq 'PageBlob')
+            {
+                $PageCount++
+                $PageCapacity = $PageCapacity + $blob.Length
+            }
+            elseif ($blob.BlobType -eq 'AppendBlob')
+            {
+                $AppendCount++
+                $AppendCapacity = $ApppendCapacity + $blob.Length
+            }
         }
 
-        foreach($blob in $SnapshotsDeleted)
+        foreach($blob in $Versions)
         {
             # DEBUG - Uncomment next line to have a full list of selected objects
             # write-host $blob.Name " Content-length:" $blob.Length " Access Tier:" $blob.accesstier " LastModified:" $blob.LastModified  " SnapshotTime:" $blob.SnapshotTime " URI:" $blob.ICloudBlob.Uri.AbsolutePath  " IslatestVersion:" $blob.IsLatestVersion  " Lease State:" $blob.ICloudBlob.Properties.LeaseState  " Version ID:" $blob.VersionID
 
-            $SnapshotsDeletedCount++
-            $SnapshotsDeletedCapacity = $SnapshotsDeletedCapacity + $blob.Length
+            $VersionsCount++
+            $VersionsCapacity = $VersionsCapacity + $blob.Length
             if ($blob.accessTier -eq 'Hot')
             {
                 $HotCount++
@@ -248,15 +284,31 @@ function ContainerList ($containerName, $ctx)
                 $ArchiveCapacity = $ArchiveCapacity + $blob.Length
             }
 
+            if ($blob.BlobType -eq 'BlockBlob')
+            {
+                $BlockCount++
+                $BlockCapacity = $BlockCapacity + $blob.Length
+            }
+            elseif ($blob.BlobType -eq 'PageBlob')
+            {
+                $PageCount++
+                $PageCapacity = $PageCapacity + $blob.Length
+            }
+            elseif ($blob.BlobType -eq 'AppendBlob')
+            {
+                $AppendCount++
+                $AppendCapacity = $ApppendCapacity + $blob.Length
+            }
+
         }
 
-        foreach($blob in $VersionsLive)
+        foreach($blob in $Deleted)
         {
             # DEBUG - Uncomment next line to have a full list of selected objects
             # write-host $blob.Name " Content-length:" $blob.Length " Access Tier:" $blob.accesstier " LastModified:" $blob.LastModified  " SnapshotTime:" $blob.SnapshotTime " URI:" $blob.ICloudBlob.Uri.AbsolutePath  " IslatestVersion:" $blob.IsLatestVersion  " Lease State:" $blob.ICloudBlob.Properties.LeaseState  " Version ID:" $blob.VersionID
 
-            $VersionsLiveCount++
-            $VersionsLiveCapacity = $VersionsLiveCapacity + $blob.Length
+            $DeletedCount++
+            $DeletedCapacity = $DeletedCapacity + $blob.Length
             if ($blob.accessTier -eq 'Hot')
             {
                 $HotCount++
@@ -281,37 +333,20 @@ function ContainerList ($containerName, $ctx)
                 $ArchiveCapacity = $ArchiveCapacity + $blob.Length
             }
 
-        }
-
-        foreach($blob in $VersionsDeleted)
-        {
-            # DEBUG - Uncomment next line to have a full list of selected objects
-            # write-host $blob.Name " Content-length:" $blob.Length " Access Tier:" $blob.accesstier " LastModified:" $blob.LastModified  " SnapshotTime:" $blob.SnapshotTime " URI:" $blob.ICloudBlob.Uri.AbsolutePath  " IslatestVersion:" $blob.IsLatestVersion  " Lease State:" $blob.ICloudBlob.Properties.LeaseState  " Version ID:" $blob.VersionID
-
-            $VersionsDeletedCount++
-            $VersionsDeletedCapacity = $VersionsDeletedCapacity + $blob.Length
-            if ($blob.accessTier -eq 'Hot')
+            if ($blob.BlobType -eq 'BlockBlob')
             {
-                $HotCount++
-                $HotCapacity = $HotCapacity + $blob.Length
+                $BlockCount++
+                $BlockCapacity = $BlockCapacity + $blob.Length
             }
-            elseif
-             ($blob.accessTier -eq 'Cool')
+            elseif ($blob.BlobType -eq 'PageBlob')
             {
-                $CoolCount++
-                $CoolCapacity = $CoolCapacity + $blob.Length
+                $PageCount++
+                $PageCapacity = $PageCapacity + $blob.Length
             }
-            elseif
-             ($blob.accessTier -eq 'Cold')
+            elseif ($blob.BlobType -eq 'AppendBlob')
             {
-                $ColdCount++
-                $ColdCapacity = $ColdCapacity + $blob.Length
-            }
-            elseif
-             ($blob.accessTier -eq 'Archive')
-            {
-                $ArchiveCount++
-                $ArchiveCapacity = $ArchiveCapacity + $blob.Length
+                $AppendCount++
+                $AppendCapacity = $ApppendCapacity + $blob.Length
             }
 
         }
@@ -319,15 +354,14 @@ function ContainerList ($containerName, $ctx)
         $blob_Token = $listOfAllBlobs[$listOfAllBlobs.Count -1].ContinuationToken;
         
 
-    }while ($blob_Token -ne $Null)   
+    }while ($blob_Token -ne $Null) 
 
-    $count =  $BaseCount + $SnapshotsLiveCount  + $SnapshotsDeletedCount + $SnapshotsDeletedCount  + $VersionsLiveCount + $VersionsDeletedCount
-    $capacity = $BaseCapacity + $SnapshotsLiveCapacity  + $SnapshotsDeletedCapacity + $SnapshotsDeletedCapacity + $VersionsLiveCapacity + $VersionsDeletedCapacity
+    $count =  $BaseCount + $SnapshotsCount  + $VersionsCount + $DeletedCount
+    $capacity = $BaseCapacity + $SnapshotsCapacity + $VersionsCapacity + $DeletedCapacity
 
-    write-output $containerName","$count","$capacity","$BaseCount","$BaseCapacity","$SnapshotsLiveCount","$SnapshotsLiveCapacity","$SnapshotsDeletedCount","$SnapshotsDeletedCapacity","$VersionsLiveCount","$VersionsLiveCapacity","$VersionsDeletedCount","$VersionsDeletedCapacity","$HotCount","$HotCapacity","$CoolCount","$CoolCapacity","$ColdCount","$ColdCapacity","$ArchiveCount","$ArchiveCapacity| out-file $filePath -Append
-
-    return  $count, $capacity,$BaseCount,$BaseCapacity,$SnapshotsLiveCount,$SnapshotsLiveCapacity,$SnapshotsDeletedCount,$SnapshotsDeletedCapacity,$VersionsLiveCount,$VersionsLiveCapacity,$VersionsDeletedCount,$VersionsDeletedCapacity,$HotCount,$HotCapacity,$CoolCount,$CoolCapacity,$ColdCount,$ColdCapacity,$ArchiveCount,$ArchiveCapacity
-
+    write-output $containerName","$count","$capacity","$BaseCount","$BaseCapacity","$SnapshotsCount","$SnapshotsCapacity","$VersionsCount","$VersionsCapacity","$DeletedCount","$DeletedCapacity","$HotCount","$HotCapacity","$CoolCount","$CoolCapacity","$ColdCount","$ColdCapacity","$ArchiveCount","$ArchiveCapacity","$BlockCount","$BlockCapacity","$PageCount","$PageCapacity","$AppendCount","$AppendCapacity | out-file $filePath -Append
+    
+    return  $count,$capacity,$BaseCount,$BaseCapacity,$SnapshotsCount,$SnapshotsCapacity,$VersionsCount,$VersionsCapacity,$DeletedCount,$DeletedCapacity,$HotCount,$HotCapacity,$CoolCount,$CoolCapacity,$ColdCount,$ColdCapacity,$ArchiveCount,$ArchiveCapacity,$BlockCount,$BlockCapacity,$PageCount,$PageCapacity,$AppendCount,$AppendCapacity
 }
 
 #----------------------------------------------------------------------
@@ -335,17 +369,15 @@ function ContainerList ($containerName, $ctx)
 $totalCount = 0
 $totalCapacity = 0
 
-## blob type
+## blob state
 $TotalBaseCount = 0
 $TotalBaseCapacity = 0
-$TotalSnapshotsLiveCount = 0
-$TotalSnapshotsLiveCapacity = 0
-$TotalSnapshotsDeletedCount = 0
-$TotalSnapshotsDeletedCapacity = 0
-$TotalVersionsLiveCount = 0
-$TotalVersionsLiveCapacity = 0
-$TotalVersionsDeletedCount = 0
-$TotalVersionsDeletedCapacity = 0
+$TotalSnapshotsCount = 0
+$TotalSnapshotsCapacity = 0
+$TotalVersionsCount = 0
+$TotalVersionsCapacity = 0
+$TotalDeletedCount = 0
+$TotalDeletedCapacity = 0
 
 ## blob tier
 $TotalHotCount = 0
@@ -356,6 +388,14 @@ $TotalColdCount = 0
 $TotalColdCapacity = 0
 $TotalArchiveCount = 0
 $TotalArchiveCapacity = 0 
+
+## blob type
+$TotalBlockCount = 0
+$TotalBlockCapacity = 0
+$TotalPageCount = 0
+$TotalPageCapacity = 0
+$TotalAppendCount = 0 
+$TotalAppendCapacity = 0
 
 # $ctx = New-AzStorageContext -StorageAccountName $storageAccountName -UseConnectedAccount -ErrorAction Stop
 $ctx = (Get-AzStorageAccount -ResourceGroupName $resourceGroupName -StorageAccount $storageAccountName).Context
@@ -384,23 +424,21 @@ do {
         {
             $container = $containers[$c].Name
 
-            $count, $capacity,$BaseCount,$BaseCapacity,$SnapshotsLiveCount,$SnapshotsLiveCapacity,$SnapshotsDeletedCount,$SnapshotsDeletedCapacity,$VersionsLiveCount,$VersionsLiveCapacity,$VersionsDeletedCount,$VersionsDeletedCapacity,$HotCount,$HotCapacity,$CoolCount,$CoolCapacity,$ColdCount,$ColdCapacity,$ArchiveCount,$ArchiveCapacity, $exception =  ContainerList $container $ctx 
+            $count,$capacity,$BaseCount,$BaseCapacity,$SnapshotsCount,$SnapshotsCapacity,$VersionsCount,$VersionsCapacity,$DeletedCount,$DeletedCapacity,$HotCount,$HotCapacity,$CoolCount,$CoolCapacity,$ColdCount,$ColdCapacity,$ArchiveCount,$ArchiveCapacity,$BlockCount,$BlockCapacity,$PageCount,$PageCapacity,$AppendCount,$AppendCapacity,$exception =  ContainerList $container $ctx 
             $arr = $arr + ($container, $count, $capacity)
 
             $totalCount = $totalCount +$count
             $totalCapacity = $totalCapacity + $capacity
 
-            ## blob type
+            ## blob State
             $TotalBaseCount = $TotalBaseCount + $BaseCount
             $TotalBaseCapacity = $TotalBaseCapacity + $BaseCapacity
-            $TotalSnapshotsLiveCount = $TotalSnapshotsLiveCount + $SnapshotsLiveCount
-            $TotalSnapshotsLiveCapacity = $TotalSnapshotsLiveCapacity + $SnapshotsLiveCapacity
-            $TotalSnapshotsDeletedCount = $TotalSnapshotsDeletedCount + $SnapshotsDeletedCount
-            $TotalSnapshotsDeletedCapacity = $TotalSnapshotsDeletedCount + $SnapshotsDeletedCount
-            $TotalVersionsLiveCount = $TotalVersionsLiveCount  + $VersionsLiveCount 
-            $TotalVersionsLiveCapacity = $TotalVersionsLiveCapacity + $VersionsLiveCapacity
-            $TotalVersionsDeletedCount = $TotalVersionsDeletedCount + $VersionsDeletedCount
-            $TotalVersionsDeletedCapacity = $TotalVersionsDeletedCount + $VersionsDeletedCount
+            $TotalSnapshotsCount = $TotalSnapshotsCount + $SnapshotsCount
+            $TotalSnapshotsCapacity = $TotalSnapshotsCapacity + $SnapshotsCapacity
+            $TotalVersionsCount = $TotalVersionsCount  + $VersionsCount 
+            $TotalVersionsCapacity = $TotalVersionsCapacity + $VersionsCapacity
+            $TotalDeletedCount = $TotalDeletedCount + $DeletedCount
+            $TotalDeletedCapacity = $TotalDeletedCount + $DeletedCount
 
             ## blob tier
             $TotalHotCount = $TotalHotCount + $HotCount 
@@ -411,6 +449,14 @@ do {
             $TotalColdCapacity = $TotalColdCapacity + $ColdCapacity
             $TotalArchiveCount = $TotalArchiveCount + $ArchiveCount
             $TotalArchiveCapacity = $TotalArchiveCapacity + $ArchiveCapacity
+
+              ## blob type
+            $TotalBlockCount = $TotalBlockCount + $BlockCount 
+            $TotalBlockCapacity = $TotalBlockCapacity + $BlockCapacity
+            $TotalPageCount = $TotalPageCount + $PageCount
+            $TotalPageCapacity = $TotalPageCapacity + $PageCapacity
+            $TotalAppendCount = $TotalAppendCount + $AppendCount
+            $TotalAppendCapacity = $TotalAppendCapacity + $AppendCapacity
         }
     }
 
@@ -427,7 +473,8 @@ for ($i=0; $i -lt 15; $i++) { write-host " " }
 ShowDetails $storageAccountName $strContainerName 
 $arr | Format-Wide -Property {$_} -Column 3 -Force
 
-write-output "Total_Sum,"$Totalcount","$Totalcapacity","$TotalBaseCount","$TotalBaseCapacity","$TotalSnapshotsLiveCount","$TotalSnapshotsLiveCapacity","$TotalSnapshotsDeletedCount","$TotalSnapshotsDeletedCapacity","$TotalVersionsLiveCount","$TotalVersionsLiveCapacity","$TotalVersionsDeletedCount","$TotalVersionsDeletedCapacity","$TotalHotCount","$TotalHotCapacity","$TotalCoolCount","$TotalCoolCapacity","$TotalColdCount","$TotalColdCapacity","$TotalArchiveCount","$TotalArchiveCapacity| out-file $filePath -Append
+$Name="Total_sum"
+write-output $Name","$Totalcount","$Totalcapacity","$TotalBaseCount","$TotalBaseCapacity","$TotalSnapshotsCount","$TotalSnapshotsCapacity","$TotalVersionsCount","$TotalVersionsCapacity","$TotalDeletedCount","$TotalDeletedCapacity","$TotalHotCount","$TotalHotCapacity","$TotalCoolCount","$TotalCoolCapacity","$TotalColdCount","$TotalColdCapacity","$TotalArchiveCount","$TotalArchiveCapacity","$TotalBlockCount","$TotalBlockCapacity","$TotalPageCount","$TotalPageCapacity","$TotalAppendCount","$TotalAppendCapacity | out-file $filePath -Append
 
 write-host "-----------------------------------"
 write-host "Total Count: $totalCount"
